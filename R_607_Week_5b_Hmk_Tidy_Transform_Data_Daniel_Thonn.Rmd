@@ -1,0 +1,223 @@
+---
+title: "R_Week_5_Hmw_607_Tidy_Transform_Data_Daniel_Thonn"
+output: html_document
+course: R-607 CUNY MSDA program
+
+---
+
+## Assignment 607_Homework-5: Tidy and Transform data
+
+Summary of Assignment
+This assignment involves Tidying and Transforming flight data
+
+This Assignment requires the following:
+
+1). R-Studio
+
+The following R-packages are used:
+1.tidyr
+2.dplyr
+3.ggplot2 
+
+Steps to reproduce:
+1). run the R-Studio file: R_607_Week_5a_Hmk_Tidy_Transform_Data_Daniel_Thonn.Rmd
+
+
+Setting up and Preparing the Environment
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=TRUE}
+
+#install.packages("stringr")
+#install.packages("tidyr")
+#install.packages("dplyr")
+#install.packages("plyr")
+#library(stringr)
+library(tidyr)
+library(dplyr)
+#library(plyr)
+#detach("package:plyr", unload=TRUE)
+library(ggplot2)
+
+```
+
+
+Load the character names data into an R dataframe, cleanup, and convert to long format
+
+
+```{r, echo=TRUE}
+#Load data from a text file
+#data_1 <- readLines("C:/mysqldata/tournamentinfo.txt") 
+#head(data_1)
+
+# Load the data csv file to a vector
+a <- read.csv(
+              "C:/mysqldata/Arrivals_Airlines.csv",
+              sep=",",
+              na.strings = "",
+              blank.lines.skip = TRUE,
+                stringsAsFactors=FALSE)
+list(a)
+
+# Convert the input vector to a dataframe
+df_arrivals_1 = data.frame(a)
+list(df_arrivals_1)
+
+# Remove the empty row [3]
+df_arrivals_2 <- df_arrivals_1[-3,]
+list(df_arrivals_2)
+names(df_arrivals_2)
+
+# Label columns for Airlines and Status
+df_arrivals_2b <- df_arrivals_2
+names(df_arrivals_2b)[names(df_arrivals_2b) == "X"] <- "Airlines"
+names(df_arrivals_2b)[names(df_arrivals_2b) == "X.1"] <- "Status"
+list(df_arrivals_2b)
+
+# Remove NA's
+df_arrivals_3 <- replace(df_arrivals_2b, is.na(df_arrivals_2), "") 
+list(df_arrivals_3)
+
+df_arrivals_4 <- df_arrivals_3
+names(df_arrivals_4)
+list(df_arrivals_4)
+
+length(df_arrivals_4$Airlines)
+
+df_arrivals_5 <- df_arrivals_4
+list(df_arrivals_5)
+
+# Fill in missing column names
+for (i in 1:length(df_arrivals_5$Airlines))
+{
+  if (i %% 2){
+    next
+  }
+  #print(df_arrivals_4$Airlines[i])
+  df_arrivals_5$Airlines[i] <- paste(df_arrivals_4$Airlines[i],df_arrivals_4$Airlines[i-1])
+}
+
+list(df_arrivals_5)
+
+# Remove spaces from column Airlines values
+df_arrivals_5$Airlines <- gsub(" ", "", df_arrivals_5$Airlines)
+df_arrivals_5$Airlines
+
+list(df_arrivals_5)
+
+# Convert wide dataframe into long dataframe
+df_arrivals_long <- gather(df_arrivals_5, City, NumFlights, Los.Angeles:Seattle) %>% mutate(City = gsub( "\\.", " ", City)) %>% arrange(Airlines)
+
+#list(df_arrivals_long)
+
+
+```
+
+
+
+Use dplyer to analyze the flight numbers and plot the results
+
+```{r, echo=TRUE}
+
+list(df_arrivals_long)
+
+# Add a column for percent of flights delayed or ont-time relative to total number of flights
+By_Airlines_df_0a <- mutate(df_arrivals_long,percent1= round(NumFlights/sum(NumFlights) * 100, 1))
+By_Airlines_df_0a
+
+# Setup group by criteria by Airlines
+By_Airlines_df_1 <- group_by(By_Airlines_df_0a,Airlines,Status) 
+By_Airlines_df_1
+
+# Select columns for analysis dataframe by Airlines
+By_Airlines_df_1a <- select(By_Airlines_df_1,Airlines,Status,NumFlights,percent1)
+By_Airlines_df_1a
+
+# Present columns based on select and group-by criteria by Airlines
+By_Airlines_df_3 <- summarise(By_Airlines_df_1a,SumNumFlights = sum(NumFlights),SumPercent = paste0(sum(percent1),"%"))
+By_Airlines_df_3
+
+# Graph delayed flights per total flights by Airline
+By_Airlines_df_3 %>% filter(Status == "delayed") %>%
+    ggplot( aes(x=Airlines, y=SumPercent, fill=Airlines)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black", width = 0.5) +
+    coord_flip() + 
+    ggtitle("Percent of Delays per Total Flights by Airline") +
+    xlab("Airline") + ylab("Percentage of Flights Delayed") +
+    geom_text(aes(label=paste(SumPercent)), vjust=0.5, hjust=1.1,color="black")
+
+
+# Graph on-time flights per total flights by Airline
+By_Airlines_df_3 %>% filter(Status == "on time") %>%
+    ggplot( aes(x=Airlines, y=SumPercent, fill=Airlines)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black", width = 0.5) +
+    coord_flip() + 
+    ggtitle("Percent of On-Time Trips per Total Flights by Airline") +
+    xlab("Airline") + ylab("Percentage of Flights On-Time") +
+    geom_text(aes(label=paste(SumPercent)), vjust=0.5, hjust=1.1,color="black")
+
+# Setup group by criteria by Airlines and City
+By_Airlines_df_1b <- group_by(By_Airlines_df_0a,Airlines,Status,City) 
+By_Airlines_df_1b
+
+# Select columns for analysis dataframe by Airlines and City
+By_Airlines_df_1c <- select(By_Airlines_df_1b,Airlines,Status,City,NumFlights,percent1)
+By_Airlines_df_1c
+
+# Present columns based on select and group-by criteria by Airlines
+By_Airlines_df_3b <- summarise(By_Airlines_df_1c,SumNumFlights = sum(NumFlights),SumPercent = paste0(sum(percent1),"%"))
+By_Airlines_df_3b
+
+# Graph delayed flights per total flights by Airline and City
+By_Airlines_df_3b %>% filter(Status == "delayed") %>%
+    ggplot( aes(x=City, y=SumPercent, fill=Airlines)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black", width = 0.5) +
+    coord_flip() + 
+    ggtitle("Percent of Delays per Total Flight by Airline by City") +
+    xlab("City") + ylab("Percentage of Flights Delayed") +
+    geom_text(aes(label=paste(SumPercent)), vjust=0.5, hjust=1.1,color="black")
+
+
+# Graph on-time flights per total flights by Airline
+By_Airlines_df_3b %>% filter(Status == "on time") %>%
+    ggplot( aes(x=City, y=SumPercent, fill=Airlines)) +
+    geom_bar(stat="identity", position=position_dodge(), colour="black", width = 0.5) +
+    coord_flip() + 
+    ggtitle("Percent of On-Time Trips per Total Flights by Airline by City") +
+    xlab("City") + ylab("Percentage of Flights On-Time") +
+    geom_text(aes(label=paste(SumPercent)), vjust=0.5, hjust=1.1,color="black")
+
+
+```
+
+Conclusion: Overall AMWEST has the higher total proportion of delayed flights at 7.3% versus 4.5% for ALASKA.  But AMWEST also had the higher number of on-time flights at 58.5% versus 29.7% for ALASKA.  The number of delays versus on-time was 7.3/58.5 = 12.4% for AMWEST and 4.5/29.7 = 15.1% for ALASKA, so ALASKA has a higher relative proportion of delayed flights. 
+
+In analysis by City Seattle has the highest total proportion of delayed flights for ALASKA airlines (2.8%), and Phoenix the highest number of delays by AMWEST (3.8%).  
+
+By City Pheonix also has the highest total proportion of on-time flights at a total of 46% for both Airlines combined.
+
+If we compare delays to on-time by city the breakdown of relative proportional delays is as follows:
+
+Los Angeles: 1.7/4.8 = 35.4%
+Seattle:  3.4/11.5 = 29.6%
+San Francisco:  2.1/10.9 = 19.2%
+San Diego:  .7/5.4 = 12.9%
+Phoenix: 3.9/46 = 8.4%
+
+This shows the breakdown of relative delays versus on-time flights by city and shows Los Angeles is the highest proportion and Phoenix has the least delays for both airlines. 
+
+
+
+
+
+
+
+
+
+
+
+
+#END
